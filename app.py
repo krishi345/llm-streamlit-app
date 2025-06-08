@@ -1,20 +1,52 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
+import json
+
+TASKS_FILE = "tasks.json"
 
 st.set_page_config(layout="centered", page_title="Task Manager App")
 
-st.title("📝 My Awesome Task Manager")
+# Functions to save and load tasks
+def save_tasks():
+    with open(TASKS_FILE, "w") as f:
+        # Convert date objects to string before saving
+        serializable_tasks = []
+        for task in st.session_state.tasks:
+            task_copy = task.copy()
+            if isinstance(task_copy["deadline"], date):
+                task_copy["deadline"] = task_copy["deadline"].isoformat()
+            serializable_tasks.append(task_copy)
+        json.dump(serializable_tasks, f, indent=4)
 
-# Initialize session state for tasks if it doesn't exist
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
+def load_tasks():
+    if "tasks" not in st.session_state:
+        try:
+            with open(TASKS_FILE, "r") as f:
+                loaded_tasks = json.load(f)
+                # Convert date strings back to date objects
+                for task in loaded_tasks:
+                    if isinstance(task["deadline"], str):
+                        task["deadline"] = datetime.fromisoformat(task["deadline"]).date()
+                st.session_state.tasks = loaded_tasks
+        except FileNotFoundError:
+            st.session_state.tasks = []
+        except json.JSONDecodeError:
+            st.error("Error reading tasks file. Starting with an empty list.")
+            st.session_state.tasks = []
+
+# Load tasks when the app starts
+load_tasks()
 
 def add_task(name, description, deadline):
     st.session_state.tasks.append({"name": name, "description": description, "deadline": deadline, "done": False})
+    save_tasks() # Save after adding a task
 
 def mark_done(task_index):
     st.session_state.tasks[task_index]["done"] = not st.session_state.tasks[task_index]["done"]
+    save_tasks() # Save after marking a task as done
+
+st.title("📝 My Awesome Task Manager")
 
 # --- Add New Task Section ---
 st.subheader("Add New Task")

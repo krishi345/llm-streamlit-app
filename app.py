@@ -1,38 +1,55 @@
 import streamlit as st
 import pandas as pd
+from datetime import date
 
-# Sample car dataset
-data = [
-    {"Brand": "Toyota", "Model": "Corolla", "Type": "Sedan", "Fuel": "Petrol", "Price": 20000},
-    {"Brand": "Honda", "Model": "Civic", "Type": "Sedan", "Fuel": "Petrol", "Price": 22000},
-    {"Brand": "Tesla", "Model": "Model 3", "Type": "Sedan", "Fuel": "Electric", "Price": 35000},
-    {"Brand": "Ford", "Model": "F-150", "Type": "Truck", "Fuel": "Diesel", "Price": 30000},
-    {"Brand": "Chevrolet", "Model": "Bolt", "Type": "Hatchback", "Fuel": "Electric", "Price": 32000},
-    {"Brand": "Hyundai", "Model": "Tucson", "Type": "SUV", "Fuel": "Petrol", "Price": 27000},
-    {"Brand": "Kia", "Model": "Sorento", "Type": "SUV", "Fuel": "Diesel", "Price": 29000},
-]
-df = pd.DataFrame(data)
+st.set_page_config(layout="centered", page_title="Task Manager App")
 
-st.title("🚗 Car Suggestion App")
-st.write("Find the best car for you based on your preferences!")
+st.title("📝 My Awesome Task Manager")
 
-# User inputs
-budget = st.slider("Select your budget ($)", min_value=15000, max_value=40000, value=25000, step=1000)
-car_type = st.selectbox("Select car type", ["Any"] + sorted(df["Type"].unique()))
-fuel_type = st.selectbox("Select fuel type", ["Any"] + sorted(df["Fuel"].unique()))
+# Initialize session state for tasks if it doesn't exist
+if "tasks" not in st.session_state:
+    st.session_state.tasks = []
 
-# Filter logic
-filtered = df[df["Price"] <= budget]
-if car_type != "Any":
-    filtered = filtered[filtered["Type"] == car_type]
-if fuel_type != "Any":
-    filtered = filtered[filtered["Fuel"] == fuel_type]
+def add_task(name, description, deadline):
+    st.session_state.tasks.append({"name": name, "description": description, "deadline": deadline, "done": False})
 
-st.subheader("Suggested Cars:")
-if not filtered.empty:
-    for _, row in filtered.iterrows():
-        st.markdown(f"**{row['Brand']} {row['Model']}**")
-        st.write(f"Type: {row['Type']}, Fuel: {row['Fuel']}, Price: ${row['Price']}")
-        st.markdown("---")
+def mark_done(task_index):
+    st.session_state.tasks[task_index]["done"] = not st.session_state.tasks[task_index]["done"]
+
+# --- Add New Task Section ---
+st.subheader("Add New Task")
+
+with st.form(key="add_task_form", clear_on_submit=True):
+    new_task_name = st.text_input("Task Name", placeholder="e.g., Finish project report")
+    new_task_description = st.text_area("Description", placeholder="e.g., Need to include all data analysis and conclusions.")
+    new_task_deadline = st.date_input("Deadline", value=date.today())
+
+    add_task_button = st.form_submit_button("Add Task")
+
+    if add_task_button:
+        if new_task_name:
+            add_task(new_task_name, new_task_description, new_task_deadline)
+            st.success(f"Task '{new_task_name}' added!")
+        else:
+            st.warning("Task Name cannot be empty!")
+
+st.markdown("--- ")
+
+# --- Display Tasks Section ---
+st.subheader("My Tasks")
+
+if st.session_state.tasks:
+    # Display tasks in reverse order (newest first)
+    for i, task in enumerate(reversed(st.session_state.tasks)):
+        # Get original index for marking as done
+        original_index = len(st.session_state.tasks) - 1 - i
+
+        task_status = "✅" if task["done"] else "⏳"
+        st.markdown(f"### {task_status} {task['name']}")
+        st.write(f"**Description:** {task['description']}")
+        st.write(f"**Deadline:** {task['deadline'].strftime('%Y-%m-%d')}")
+
+        st.checkbox("Mark as Done", value=task["done"], key=f"task_done_{original_index}", on_change=mark_done, args=(original_index,))
+        st.markdown("--- ")
 else:
-    st.write("No cars match your preferences. Try adjusting your filters.") 
+    st.info("No tasks added yet. Add a new task above!")
